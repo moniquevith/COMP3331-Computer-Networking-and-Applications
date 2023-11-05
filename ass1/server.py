@@ -201,7 +201,6 @@ class ClientThread(Thread):
 print("\n===== Server is running =====")
 print("===== Waiting for connection request from clients...=====")
 
-
 while True:
     serverSocket.listen()
     clientSockt, clientAddress = serverSocket.accept()
