@@ -34,7 +34,7 @@ def message_response(valid_credentials, username, username_exists):
             now = datetime.datetime.now()
             time_change = datetime.timedelta(seconds=10)
             new_time = now + time_change
-            current_time = new_time.strftime("%Y:%m:%d %I:%M:%S")
+            current_time = new_time.strftime("%d %b %Y %H:%M:%S")
 
             blocked[username] = current_time
     else: 
@@ -63,12 +63,19 @@ loginAttempts = {}
 blockedUser = {}
 
 # Configure the first logger
-logging.basicConfig(filename="userlog.txt", level=logging.INFO, format='%(message)s')
-logger1 = logging.getLogger('Logger1')
+logger1 = logging.getLogger('logger1')
+logger1.setLevel(logging.INFO)
+
+formatter1 = logging.Formatter('%(message)s')
+
+file_handler1 = logging.FileHandler('userlog.txt')
+file_handler1.setFormatter(formatter1)
+
+logger1.addHandler(file_handler1)
 
 # Configure the second logger
 # logging.basicConfig(filename="messagelog.txt", level=logging.INFO, format='%(message)s')
-logger2 = logging.getLogger(__name__)
+logger2 = logging.getLogger('logger2')
 logger2.setLevel(logging.INFO)
 
 formatter = logging.Formatter('%(message)s')
@@ -126,6 +133,13 @@ class ClientThread(Thread):
                     self.clientSocket.send(message.encode())
                 else: 
                     print("bad user")
+            elif message.startswith("/activeuser"):
+                if self.getActiveUsers(clientAddress) == []: 
+                    message = "no other active user"
+                    self.clientSocket.send(message.encode())
+                else: 
+                    for user in self.getActiveUsers(clientAddress): 
+                        self.clientSocket.send(user.encode())
             elif message == 'download':
                 print("[recv] Download request")
                 message = 'download filename'
@@ -152,7 +166,7 @@ class ClientThread(Thread):
         # check if user is blocked
         if username in blockedUser: 
             blocked = blockedUser[username] 
-            date_format = "%Y:%m:%d %I:%M:%S"
+            date_format = "%d %b %Y %H:%M:%S"
             blocked_time = datetime.datetime.strptime(blocked, date_format)
             now = datetime.datetime.now()
             time_now = now.strftime(date_format)
@@ -207,7 +221,7 @@ class ClientThread(Thread):
 
     def logUser(self, message, sequence_num, client_address):
         now = datetime.datetime.now()
-        date_format = "%Y:%m:%d %I:%M:%S"
+        date_format = "%d %b %Y %H:%M:%S"
         time_now = now.strftime(date_format)
 
         if clientAddress in self.clientlog:
@@ -239,11 +253,28 @@ class ClientThread(Thread):
         msg = ' '.join(re.split(' ', message)[2:])
 
         now = datetime.datetime.now()
-        date_format = "%Y:%m:%d %I:%M:%S"
+        date_format = "%d %b %Y %H:%M:%S"
         time_now = now.strftime(date_format)
         log_msg = f'{seq_num};{time_now};{username};{msg}'
         logger2.info(log_msg)
         return [time_now, msg]
+
+    def getActiveUsers(self, client_address):
+        with open('userlog.txt', 'r') as file: 
+            content = file.read()
+        
+        lst_active_users = []
+        for row in re.split(r'\n', content):
+            if len(row.split(';')) == 5: 
+                user = re.split(';', row)[2]
+                timestamp = re.split(';', row)[1]
+                user_info = self.clientlog[client_address]
+                username = user_info['username']
+                if user == username: 
+                    continue
+                else: 
+                    lst_active_users.append(f'{user}, active since {timestamp}')
+        return lst_active_users
 
 print("\n===== Server is running =====")
 print("===== Waiting for connection request from clients...=====")

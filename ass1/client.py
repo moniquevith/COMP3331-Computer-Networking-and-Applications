@@ -26,6 +26,8 @@ def doCommand():
                     continue
                 else: 
                     return f'{cmd} {username} {msg}'
+        if command.startswith('/activeuser'):
+            return '/activeuser'
 #Server would be running on the same host as Client
 if len(sys.argv) != 3:
     print("\n===== Error usage, python3 TCPClient3.py SERVER_IP SERVER_PORT ======\n")
@@ -94,9 +96,9 @@ while True:
     elif receivedMessage == "Invalid Password. Your account has been blocked. Please try again later":
         print(receivedMessage)
         break
-    elif receivedMessage == "Message has been sent!": 
-        print(receivedMessage)
-        continue
+    # elif receivedMessage == "Message has been sent!": 
+    #     print(receivedMessage)
+    #     continue
     elif receivedMessage == "download filename":
         print("[recv] You need to provide the file name you want to download")
     else:
