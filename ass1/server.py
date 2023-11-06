@@ -67,8 +67,16 @@ logging.basicConfig(filename="userlog.txt", level=logging.INFO, format='%(messag
 logger1 = logging.getLogger('Logger1')
 
 # Configure the second logger
-logging.basicConfig(filename="messagelog.txt", level=logging.INFO, format='%(message)s')
-logger2 = logging.getLogger('Logger2')
+# logging.basicConfig(filename="messagelog.txt", level=logging.INFO, format='%(message)s')
+logger2 = logging.getLogger(__name__)
+logger2.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(message)s')
+
+file_handler = logging.FileHandler('messagelog.txt')
+file_handler.setFormatter(formatter)
+
+logger2.addHandler(file_handler)
 
 """
     Define multi-thread class for client
@@ -76,11 +84,11 @@ logger2 = logging.getLogger('Logger2')
     For example, client-1 makes a connection request to the server, the server will call
     class (ClientThread) to define a thread for client-1, and when client-2 make a connection
     request to the server, the server will call class (ClientThread) again and create a thread
-    for client-2. Each client will be runing in a separate therad, which is the multi-threading
+    for client-2. Each client will be ru ning in a separate therad, which is the multi-threading
 """
 class ClientThread(Thread):
     sequence_num = 0
-
+    message_num = 0
     def __init__(self, clientAddress, clientSocket):
         Thread.__init__(self)
         self.clientAddress = clientAddress
@@ -103,14 +111,21 @@ class ClientThread(Thread):
                 self.clientAlive = False
                 print("===== the user disconnected - ", clientAddress)
                 break
-
             # handle message from the client
-            if re.match(r'([^ ]+) ([^ ]+)', message): # message contains username and password
+            if re.match(r'([^ ]+) ([^ ]+)', message) and len(message.split()) == 2: # message contains username and password
                 print("[recv] New login request")
                 self.process_login(message, clientAddress)
             elif message.startswith("UDP_PORT="):
                 ClientThread.sequence_num += 1
                 self.logUser(message, ClientThread.sequence_num, clientAddress)
+            elif message.startswith("/msgto"): 
+                if self.checkValidUser(message):
+                    ClientThread.message_num += 1
+                    info = self.logMessage(message, ClientThread.message_num)
+                    message = f"{info[0]} {info[1]}"
+                    self.clientSocket.send(message.encode())
+                else: 
+                    print("bad user")
             elif message == 'download':
                 print("[recv] Download request")
                 message = 'download filename'
@@ -204,6 +219,31 @@ class ClientThread(Thread):
             logger1.info(log_msg)
         else: 
             print(f"User not found for client {client_address}")
+
+    def checkValidUser(self, message): 
+        cmd = re.split(' ', message)[0]
+        username = re.split(' ', message)[1]
+        msg = re.split(' ', message)[2:]
+        with open('credentials.txt', 'r') as file: 
+            content = file.read()
+        valid_user = False
+        for row in re.split(r'\n', content):
+            valid_username, valid_password = re.split(r' ', row)
+            if username == valid_username: 
+                valid_user = True
+        return valid_user
+
+    def logMessage(self, message, seq_num): 
+        cmd = re.split(' ', message)[0]
+        username = re.split(' ', message)[1]
+        msg = ' '.join(re.split(' ', message)[2:])
+
+        now = datetime.datetime.now()
+        date_format = "%Y:%m:%d %I:%M:%S"
+        time_now = now.strftime(date_format)
+        log_msg = f'{seq_num};{time_now};{username};{msg}'
+        logger2.info(log_msg)
+        return [time_now, msg]
 
 print("\n===== Server is running =====")
 print("===== Waiting for connection request from clients...=====")

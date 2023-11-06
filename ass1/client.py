@@ -49,12 +49,15 @@ local_address = udp_socket.getsockname()
 udp_port_number = local_address[1]
 
 retry_password = False
+logged_in = False
 curr_user = ''
 while True:
     if retry_password: 
         password = input("Password: ")
         message = f'{curr_user} {password}'
         clientSocket.sendall(message.encode())
+    elif logged_in: 
+        clientSocket.send(doCommand().encode())
     else: 
         print("Please Login")
         username = input("Username: ")
@@ -74,20 +77,26 @@ while True:
     elif receivedMessage == "Welcome to TESSENGER!":
         print(receivedMessage)
         retry_password = False
+        logged_in = True
         udp_port = 'UDP_PORT=' + str(udp_port_number)
         clientSocket.send(udp_port.encode())
-        clientSocket.send(doCommand().encode())
+        continue
     elif receivedMessage == "Invalid Password. Please try again":
         print(receivedMessage)
+        logged_in = False
         retry_password = True
         continue
     elif receivedMessage == "username does not exist in the database":
         print(receivedMessage)
+        logged_in = False
         retry_password = False
         continue
     elif receivedMessage == "Invalid Password. Your account has been blocked. Please try again later":
         print(receivedMessage)
         break
+    elif receivedMessage == "Message has been sent!": 
+        print(receivedMessage)
+        continue
     elif receivedMessage == "download filename":
         print("[recv] You need to provide the file name you want to download")
     else:
