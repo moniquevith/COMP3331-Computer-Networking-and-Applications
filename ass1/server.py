@@ -62,6 +62,14 @@ serverSocket.bind(serverAddress)
 loginAttempts = {}
 blockedUser = {}
 
+# Configure the first logger
+logging.basicConfig(filename="userlog.txt", level=logging.INFO, format='%(message)s')
+logger1 = logging.getLogger('Logger1')
+
+# Configure the second logger
+logging.basicConfig(filename="messagelog.txt", level=logging.INFO, format='%(message)s')
+logger2 = logging.getLogger('Logger2')
+
 """
     Define multi-thread class for client
     This class would be used to define the instance for each connection from each client
@@ -183,7 +191,6 @@ class ClientThread(Thread):
         self.clientSocket.send(reply_msg.encode())
 
     def logUser(self, message, sequence_num, client_address):
-        logging.basicConfig(filename="userlog.txt", level=logging.INFO, format='%(message)s')
         now = datetime.datetime.now()
         date_format = "%Y:%m:%d %I:%M:%S"
         time_now = now.strftime(date_format)
@@ -194,7 +201,7 @@ class ClientThread(Thread):
             client_ip = user_info['client_ip_address']
             udp_port_number = re.split('=', message)[1]
             log_msg = f'{sequence_num};{time_now};{username}; {client_ip};{udp_port_number}'
-            logging.info(log_msg)
+            logger1.info(log_msg)
         else: 
             print(f"User not found for client {client_address}")
 
