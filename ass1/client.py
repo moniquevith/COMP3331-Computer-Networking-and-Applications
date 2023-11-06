@@ -7,7 +7,25 @@
 """
 from socket import *
 import sys
+import re
 
+def doCommand(): 
+    while True: 
+        command = input("Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /logout):")
+        if command.startswith('/msgto'):
+            parts = command.split()
+            if len(parts) < 3: 
+                print("Invalid use of command /msgto, please follow this format /msgto USERNAME MESSAGE_CONTENT and try again.")
+                continue
+            else: 
+                cmd = re.split(' ', command)[0]
+                username = re.split(' ', command)[1]
+                msg = ' '.join(re.split(' ', command)[2:])
+                if msg.isspace():
+                    print("Invalid use of command /msgto, please follow this format /msgto USERNAME MESSAGE_CONTENT and try again.")
+                    continue
+                else: 
+                    return f'{cmd} {username} {msg}'
 #Server would be running on the same host as Client
 if len(sys.argv) != 3:
     print("\n===== Error usage, python3 TCPClient3.py SERVER_IP SERVER_PORT ======\n")
@@ -58,7 +76,7 @@ while True:
         retry_password = False
         udp_port = 'UDP_PORT=' + str(udp_port_number)
         clientSocket.send(udp_port.encode())
-        command = input("Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /logout):")
+        clientSocket.send(doCommand().encode())
     elif receivedMessage == "Invalid Password. Please try again":
         print(receivedMessage)
         retry_password = True
