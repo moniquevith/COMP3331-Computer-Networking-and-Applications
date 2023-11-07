@@ -8,6 +8,7 @@
 from socket import *
 import sys
 import re
+import threading
 
 def doCommand(): 
     while True: 
@@ -37,6 +38,12 @@ def doCommand():
         if command.startswith('/joingroup'):
             if len(command.split()) < 2: 
                     print("Invalid use of command /joingroup")
+                    continue
+            else: 
+                return command
+        if command.startswith('/groupmsg'):
+            if len(command.split()) < 3: 
+                    print("Invalid use of command /groupmsg")
                     continue
             else: 
                 return command
@@ -119,6 +126,25 @@ while True:
         continue
     else:
         break
+
+# def receive_messages(clientSocket):
+#     while True:
+#         data = clientSocket.recv(1024)
+#         receivedMessage = data.decode()
+#         # if receivedMessage.startswith("/groupmsg"):
+#         #     # Extract the message content from the received message
+#         #     parts = receivedMessage.split(" ")
+#         #     if len(parts) >= 3:
+#         #         sender = parts[1]
+#         #         message = " ".join(parts[2:])
+#         #         print(f"{sender}: {message}")
+#         # else:
+#         print(receivedMessage)
+
+# # Start a separate thread to receive messages from the server
+# message_receiver_thread = threading.Thread(target=receive_messages, args=(clientSocket,))
+# message_receiver_thread.daemon = True  # Exit the thread when the main program exits
+# message_receiver_thread.start()
 
 # close the socket
 clientSocket.close()

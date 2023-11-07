@@ -62,6 +62,7 @@ serverSocket.bind(serverAddress)
 loginAttempts = {}
 blockedUser = {}
 groupchats = {} # groupchats = {groupname: {user1: false, user2: false}, groupname2: {user1: false, user2: false}}
+connected_clients = {} # {username: self.clientSocket}
 
 # Configure the first logger
 logger1 = logging.getLogger('logger1')
@@ -92,7 +93,7 @@ logger2.addHandler(file_handler)
     For example, client-1 makes a connection request to the server, the server will call
     class (ClientThread) to define a thread for client-1, and when client-2 make a connection
     request to the server, the server will call class (ClientThread) again and create a thread
-    for client-2. Each client will be ru ning in a separate therad, which is the multi-threading
+    for client-2. Each client will be running in a separate thread, which is the multi-threading
 """
 class ClientThread(Thread):
     sequence_num = 0
@@ -165,6 +166,11 @@ class ClientThread(Thread):
             elif message.startswith("/joingroup"):
                 message = self.joinGroup(message, clientAddress)
                 self.clientSocket.send(message.encode())
+            elif message.startswith("/groupmsg"):
+                message = self.sendGroupMsg(message, clientAddress)
+                self.clientSocket.send(message.encode())
+                # send to active members 
+                self.sendToGroupMembers(message, clientAddress)
             elif message == 'download':
                 print("[recv] Download request")
                 message = 'download filename'
@@ -256,6 +262,7 @@ class ClientThread(Thread):
             udp_port_number = re.split('=', message)[1]
             log_msg = f'{sequence_num};{time_now};{username}; {client_ip};{udp_port_number}'
             logger1.info(log_msg)
+            connected_clients[username] = self.clientSocket
         else: 
             print(f"User not found for client {client_address}")
 
@@ -270,7 +277,7 @@ class ClientThread(Thread):
         return valid_user
 
     def logMessage(self, message, seq_num): 
-        cmd = re.split(' ', message)[0]
+        cmd = re.split(r' ', message)[0]
         username = re.split(' ', message)[1]
         msg = ' '.join(re.split(' ', message)[2:])
 
@@ -329,19 +336,72 @@ class ClientThread(Thread):
         return message
 
     def joinGroup(self, message, client_address):
-        grpname = re.split(' ', message)[1]
+        grpname = re.split(r' ', message)[1]
         user_info = self.clientlog[client_address]
         user = user_info['username']
         if grpname in groupchats: 
-            for member in groupchats[grpname]:
-                if member == user: 
+            members = groupchats[grpname]
+            for m in members: 
+                if m == user: 
+                    members[m] = True
                     message = f'Joined the group chat: {grpname} successfully.'
-                    break
+                    break 
                 else: 
                     message = f'You are not in this groupchat'
         else: 
             message = "This group chat doesn't exist"
         return message
+
+    def sendGroupMsg(self, message, client_address):
+        grpname = re.split(r' ', message)[1]
+        msg = ' '.join(re.split(r' ', message)[2:])
+        user_info = self.clientlog[client_address]
+        user = user_info['username']
+        now = datetime.datetime.now()
+        date_format = "%d %b %Y %H:%M:%S"
+        time_now = now.strftime(date_format)
+
+        if grpname in groupchats: 
+            members = groupchats[grpname]
+            for m in members: 
+                if m == user: 
+                    if members[m] == False: # has not joined chat
+                        message = "Please join the group before sending messages"
+                        break
+                    else: # joined chat
+                        with open(f'{grpname}_messagelog.txt', 'a') as file: 
+                            file.write(f'{time_now}; {user}; {msg}\n')
+                            file.close()
+                        message = "Group chat message sent"
+                        break
+                else:
+                    message = "You are not in this group chat"
+        else: 
+            message = "The group chat does not exist"
+        return message
+
+    def sendToGroupMembers(self, message, client_address): 
+        grpname = re.split(r' ', message)[1]
+        msg = ' '.join(re.split(r' ', message)[2:])
+        user_info = self.clientlog[client_address]
+        user = user_info['username']
+
+        if grpname in groupchats:
+            members = groupchats[grpname]
+            for m in members: 
+                if m == user: # ignore current user 
+                    continue
+                else: 
+                    # check if member is active 
+                    with open('userlog.txt', 'r') as file: 
+                        content = file.read()
+                    for row in re.split(r'\n', content):
+                        if len(row.split(';')) == 5: 
+                            active_user = re.split(';', row)[2]
+                            if m == active_user: 
+                                memberSocket = connected_clients[m]
+                                message = f'time, {grpname}, {user}: {msg}'
+                                memberSocket.send(message.encode())                  
 
 print("\n===== Server is running =====")
 print("===== Waiting for connection request from clients...=====")
