@@ -120,7 +120,7 @@ class ClientThread(Thread):
                 print("===== the user disconnected - ", clientAddress)
                 break
             # handle message from the client
-            if re.match(r'([^ ]+) ([^ ]+)', message) and len(message.split()) == 2: # message contains username and password
+            if re.match(r'([^/ ]+) ([^ ]+)', message) and len(message.split()) == 2: # message contains username and password
                 print("[recv] New login request")
                 self.process_login(message, clientAddress)
             elif message.startswith("UDP_PORT="):
@@ -162,6 +162,9 @@ class ClientThread(Thread):
                 else: 
                     message = "Invalid usernames provided, group chat could not be created"
                     self.clientSocket.send(message.encode())
+            elif message.startswith("/joingroup"):
+                message = self.joinGroup(message, clientAddress)
+                self.clientSocket.send(message.encode())
             elif message == 'download':
                 print("[recv] Download request")
                 message = 'download filename'
@@ -320,6 +323,21 @@ class ClientThread(Thread):
                 message = f'Group chat room has been created, room name: {grpname}, users in this room: {users}'
         else:
             message = "Only letters and numbers allowed for groupchat name"
+        return message
+
+    def joinGroup(self, message, client_address):
+        grpname = re.split(' ', message)[1]
+        user_info = self.clientlog[client_address]
+        user = user_info['username']
+        if grpname in groupchats: 
+            for member in groupchats[grpname]:
+                if member == user: 
+                    message = f'Joined the group chat: {grpname} successfully.'
+                    break
+                else: 
+                    message = f'You are not in this groupchat'
+        else: 
+            message = "This group chat doesn't exist"
         return message
 
 print("\n===== Server is running =====")

@@ -34,12 +34,12 @@ def doCommand():
                 continue
             else: 
                 return command
-        if command.startswith('/joingroup')
+        if command.startswith('/joingroup'):
             if len(command.split()) < 2: 
                     print("Invalid use of command /joingroup")
                     continue
-                else: 
-                    return command
+            else: 
+                return command
 
 #Server would be running on the same host as Client
 if len(sys.argv) != 3:
