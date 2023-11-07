@@ -61,7 +61,7 @@ serverSocket.bind(serverAddress)
 
 loginAttempts = {}
 blockedUser = {}
-groupchats = {}
+groupchats = {} # groupchats = {groupname: {user1: false, user2: false}, groupname2: {user1: false, user2: false}}
 
 # Configure the first logger
 logger1 = logging.getLogger('logger1')
@@ -307,7 +307,10 @@ class ClientThread(Thread):
                 user_info = self.clientlog[client_address]
                 creator = user_info['username']
                 usernames[:0] = [creator]
-                groupchats[grpname] = usernames
+                members = {}
+                for user in usernames: 
+                    members[user] = False
+                groupchats[grpname] = members 
 
                 # create log file
                 groupchat = logging.getLogger('groupchat')
