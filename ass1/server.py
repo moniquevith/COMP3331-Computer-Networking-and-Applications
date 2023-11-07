@@ -61,6 +61,7 @@ serverSocket.bind(serverAddress)
 
 loginAttempts = {}
 blockedUser = {}
+groupchats = {}
 
 # Configure the first logger
 logger1 = logging.getLogger('logger1')
@@ -125,8 +126,12 @@ class ClientThread(Thread):
             elif message.startswith("UDP_PORT="):
                 ClientThread.sequence_num += 1
                 self.logUser(message, ClientThread.sequence_num, clientAddress)
-            elif message.startswith("/msgto"): 
-                if self.checkValidUser(message):
+            elif message.startswith("/msgto"):
+                cmd = re.split(' ', message)[0]
+                username = re.split(' ', message)[1]
+                msg = re.split(' ', message)[2:] 
+                checkValid = self.checkValidUser(username)
+                if checkValid:
                     ClientThread.message_num += 1
                     info = self.logMessage(message, ClientThread.message_num)
                     message = f"{info[0]} {info[1]}"
@@ -140,6 +145,23 @@ class ClientThread(Thread):
                 else: 
                     for user in self.getActiveUsers(clientAddress): 
                         self.clientSocket.send(user.encode())
+            elif message.startswith("/creategroup"): 
+                cmd = re.split(' ', message)[0]
+                grpname = re.split(' ', message)[1]
+                usernames = re.split(' ', message)[2:] 
+                isValid = False
+                for user in usernames: 
+                    if self.checkValidUser(user) == False:
+                        isValid = False
+                        break
+                    else: 
+                        isValid = True
+                if isValid: 
+                    message = self.createGroupChat(grpname, usernames, clientAddress)
+                    self.clientSocket.send(message.encode())
+                else: 
+                    message = "Invalid usernames provided, group chat could not be created"
+                    self.clientSocket.send(message.encode())
             elif message == 'download':
                 print("[recv] Download request")
                 message = 'download filename'
@@ -234,10 +256,7 @@ class ClientThread(Thread):
         else: 
             print(f"User not found for client {client_address}")
 
-    def checkValidUser(self, message): 
-        cmd = re.split(' ', message)[0]
-        username = re.split(' ', message)[1]
-        msg = re.split(' ', message)[2:]
+    def checkValidUser(self, username): 
         with open('credentials.txt', 'r') as file: 
             content = file.read()
         valid_user = False
@@ -275,6 +294,33 @@ class ClientThread(Thread):
                 else: 
                     lst_active_users.append(f'{user}, active since {timestamp}')
         return lst_active_users
+    
+    def createGroupChat(self, grpname, usernames, client_address): 
+        if grpname.isalnum(): 
+            if grpname in groupchats:
+                message = f'a group chat {grpname} already exist'
+            else:
+                # store group members
+                user_info = self.clientlog[client_address]
+                creator = user_info['username']
+                usernames[:0] = [creator]
+                groupchats[grpname] = usernames
+
+                # create log file
+                groupchat = logging.getLogger('groupchat')
+                groupchat.setLevel(logging.INFO)
+                formatter = logging.Formatter('%(message)s')
+                file_handler = logging.FileHandler(f'{grpname}_messagelog.txt')
+                file_handler.setFormatter(formatter)
+                groupchat.addHandler(file_handler)
+
+                users = ''
+                for user in usernames:
+                    users += f'{user} '
+                message = f'Group chat room has been created, room name: {grpname}, users in this room: {users}'
+        else:
+            message = "Only letters and numbers allowed for groupchat name"
+        return message
 
 print("\n===== Server is running =====")
 print("===== Waiting for connection request from clients...=====")

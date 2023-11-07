@@ -15,19 +15,32 @@ def doCommand():
         if command.startswith('/msgto'):
             parts = command.split()
             if len(parts) < 3: 
-                print("Invalid use of command /msgto, please follow this format /msgto USERNAME MESSAGE_CONTENT and try again.")
+                print("Invalid use of command /msgto")
                 continue
             else: 
                 cmd = re.split(' ', command)[0]
                 username = re.split(' ', command)[1]
                 msg = ' '.join(re.split(' ', command)[2:])
                 if msg.isspace():
-                    print("Invalid use of command /msgto, please follow this format /msgto USERNAME MESSAGE_CONTENT and try again.")
+                    print("Invalid use of command /msgto")
                     continue
                 else: 
                     return f'{cmd} {username} {msg}'
         if command.startswith('/activeuser'):
             return '/activeuser'
+        if command.startswith('/creategroup'): 
+            if len(command.split()) < 3: 
+                print("Invalid use of command /creategroup")
+                continue
+            else: 
+                return command
+        if command.startswith('/joingroup')
+            if len(command.split()) < 2: 
+                    print("Invalid use of command /joingroup")
+                    continue
+                else: 
+                    return command
+
 #Server would be running on the same host as Client
 if len(sys.argv) != 3:
     print("\n===== Error usage, python3 TCPClient3.py SERVER_IP SERVER_PORT ======\n")
@@ -96,9 +109,6 @@ while True:
     elif receivedMessage == "Invalid Password. Your account has been blocked. Please try again later":
         print(receivedMessage)
         break
-    # elif receivedMessage == "Message has been sent!": 
-    #     print(receivedMessage)
-    #     continue
     elif receivedMessage == "download filename":
         print("[recv] You need to provide the file name you want to download")
     else:
