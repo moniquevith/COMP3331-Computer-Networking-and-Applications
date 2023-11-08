@@ -114,7 +114,7 @@ class ClientThread(Thread):
             # use recv() to receive message from the client
             data = self.clientSocket.recv(1024)
             message = data.decode()
-            
+
             # if the message from client is empty, the client would be off-line then set the client as offline (alive=Flase)
             if message == '':
                 self.clientAlive = False
@@ -123,10 +123,11 @@ class ClientThread(Thread):
             # handle message from the client
             if re.match(r'([^/ ]+) ([^ ]+)', message) and len(message.split()) == 2: # message contains username and password
                 print("[recv] New login request")
-                self.process_login(message, clientAddress)
+                self.process_login(message, self.clientAddress)
             elif message.startswith("UDP_PORT="):
+                print("working")
                 ClientThread.sequence_num += 1
-                self.logUser(message, ClientThread.sequence_num, clientAddress)
+                self.logUser(message, ClientThread.sequence_num, self.clientAddress)
             elif message.startswith("/msgto"):
                 cmd = re.split(' ', message)[0]
                 username = re.split(' ', message)[1]
@@ -138,13 +139,14 @@ class ClientThread(Thread):
                     message = f"{info[0]} {info[1]}"
                     self.clientSocket.send(message.encode())
                 else: 
-                    print("bad user")
+                    message = 'Invalid User'
+                    self.clientSocket.send(message.encode())
             elif message.startswith("/activeuser"):
                 if self.getActiveUsers(clientAddress) == []: 
                     message = "no other active user"
                     self.clientSocket.send(message.encode())
                 else: 
-                    for user in self.getActiveUsers(clientAddress): 
+                    for user in self.getActiveUsers(self.clientAddress): 
                         self.clientSocket.send(user.encode())
             elif message.startswith("/creategroup"): 
                 cmd = re.split(' ', message)[0]
@@ -158,19 +160,19 @@ class ClientThread(Thread):
                     else: 
                         isValid = True
                 if isValid: 
-                    message = self.createGroupChat(grpname, usernames, clientAddress)
+                    message = self.createGroupChat(grpname, usernames, self.clientAddress)
                     self.clientSocket.send(message.encode())
                 else: 
                     message = "Invalid usernames provided, group chat could not be created"
                     self.clientSocket.send(message.encode())
             elif message.startswith("/joingroup"):
-                message = self.joinGroup(message, clientAddress)
+                message = self.joinGroup(message, self.clientAddress)
                 self.clientSocket.send(message.encode())
             elif message.startswith("/groupmsg"):
-                message = self.sendGroupMsg(message, clientAddress)
+                message = self.sendGroupMsg(message, self.clientAddress)
                 self.clientSocket.send(message.encode())
                 # send to active members 
-                self.sendToGroupMembers(message, clientAddress)
+                self.sendToGroupMembers(message, self.clientAddress)
             elif message == 'download':
                 print("[recv] Download request")
                 message = 'download filename'
@@ -247,7 +249,7 @@ class ClientThread(Thread):
                 username_exists = False
                 
             reply_msg = message_response(valid_credentials, username, username_exists)
-
+        print(reply_msg)
         self.clientSocket.send(reply_msg.encode())
 
     def logUser(self, message, sequence_num, client_address):
@@ -400,7 +402,7 @@ class ClientThread(Thread):
                             active_user = re.split(';', row)[2]
                             if m == active_user: 
                                 memberSocket = connected_clients[m]
-                                message = f'time, {grpname}, {user}: {msg}'
+                                message = f'GROUPMSG= time, {grpname}, {user}: {msg}'
                                 memberSocket.send(message.encode())                  
 
 print("\n===== Server is running =====")

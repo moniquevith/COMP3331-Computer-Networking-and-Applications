@@ -70,75 +70,35 @@ udp_socket.bind(('0.0.0.0', 0))  # Binding to port 0 to let the OS choose a port
 local_address = udp_socket.getsockname()
 udp_port_number = local_address[1]
 
-retry_password = False
-logged_in = False
-curr_user = ''
-while True:
-    if retry_password: 
-        password = input("Password: ")
-        message = f'{curr_user} {password}'
-        clientSocket.sendall(message.encode())
-    elif logged_in: 
-        clientSocket.send(doCommand().encode())
-    else: 
-        print("Please Login")
-        username = input("Username: ")
-        password = input("Password: ")
-        curr_user = username
-        message = f'{username} {password}'
-        clientSocket.sendall(message.encode())
 
-    # receive response from the server
-    # 1024 is a suggested packet size, you can specify it as 2048 or others
-    data = clientSocket.recv(1024)
-    receivedMessage = data.decode()
-    
-    # parse the message received from server and take corresponding actions
-    if receivedMessage == "":
-        print("[recv] Message from server is empty!")
-    elif receivedMessage == "Welcome to TESSENGER!":
-        print(receivedMessage)
-        retry_password = False
-        logged_in = True
-        udp_port = 'UDP_PORT=' + str(udp_port_number)
-        clientSocket.send(udp_port.encode())
-        continue
-    elif receivedMessage == "Invalid Password. Please try again":
-        print(receivedMessage)
-        logged_in = False
-        retry_password = True
-        continue
-    elif receivedMessage == "username does not exist in the database":
-        print(receivedMessage)
-        logged_in = False
-        retry_password = False
-        continue
-    elif receivedMessage == "Invalid Password. Your account has been blocked. Please try again later":
-        print(receivedMessage)
-        break
-    elif receivedMessage == "download filename":
-        print("[recv] You need to provide the file name you want to download")
-    else:
-        print(receivedMessage)
-        
-    ans = input('\nDo you want to continue(y/n) :')
-    if ans == 'y':
-        continue
-    else:
-        break
+# Function for user input and printing received messages
+def user_interaction():
+    while True:
+        user_input = input("Enter a message to send to the server (or 'exit' to quit): ")
+        if user_input.lower() == "exit":
+            break
+        clientSocket.send(user_input.encode())
 
-# # Create a thread for user interactions
-# main_thread = threading.Thread(target=mainThread)
-# main_thread.start()
+        server_response = clientSocket.recv(1024).decode()
+        print(f"Server says: {server_response}")
 
-# # Create a thread for receiving messages
-# receive_thread = threading.Thread(target=receive_messages)
-# receive_thread.start()
+# Function to continuously listen for incoming messages from the server and print them
+def receive_messages():
+    while True:
+        server_message = clientSocket.recv(1024).decode()
+        print(f"Received 2 from server: {server_message}")
 
-# # wait for both threads to complete
-# receive_thread.join()
-# main_thread.join()
+# Create and start the user interaction thread
+user_thread = threading.Thread(target=user_interaction)
+user_thread.start()
 
-# close the socket
+# Create and start the receive messages thread
+receive_thread = threading.Thread(target=receive_messages)
+receive_thread.start()
+
+# Wait for both threads to complete
+user_thread.join()
+receive_thread.join()
+
+# Close the socket after both threads exit
 clientSocket.close()
-udp_socket.close()
