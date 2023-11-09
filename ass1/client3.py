@@ -82,11 +82,11 @@ def send_handler():
 
 def run_threads():
     recv_thread = threading.Thread(target=recv_handler)
-    # recv_thread.daemon = True
+    recv_thread.daemon = True
     recv_thread.start()
 
     sending_thread = threading.Thread(target=send_handler)
-    # sending_thread.daemon = True
+    sending_thread.daemon = True
     sending_thread.start()
 
     while True:
@@ -116,7 +116,6 @@ def log_in(retry_password, logged_in, curr_user):
         print(receivedMessage)
         udp_port = 'UDP_PORT=' + str(udp_port_number)
         clientSocket.send(udp_port.encode())
-        # send handler
         run_threads()
     elif receivedMessage == "Invalid Password. Please try again":
         print(receivedMessage)

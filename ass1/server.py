@@ -125,7 +125,6 @@ class ClientThread(Thread):
                 print("[recv] New login request")
                 self.process_login(message, self.clientAddress)
             elif message.startswith("UDP_PORT="):
-                print("working")
                 ClientThread.sequence_num += 1
                 self.logUser(message, ClientThread.sequence_num, self.clientAddress)
             elif message.startswith("/msgto"):
@@ -136,8 +135,9 @@ class ClientThread(Thread):
                 if checkValid:
                     ClientThread.message_num += 1
                     info = self.logMessage(message, ClientThread.message_num)
-                    message = f"{info[0]} {info[1]}"
-                    self.clientSocket.send(message.encode())
+                    response = f"{info[0]} {info[1]}"
+                    self.clientSocket.send(response.encode())
+                    self.sendPrivMessage(message)
                 else: 
                     message = 'Invalid User'
                     self.clientSocket.send(message.encode())
@@ -169,8 +169,8 @@ class ClientThread(Thread):
                 message = self.joinGroup(message, self.clientAddress)
                 self.clientSocket.send(message.encode())
             elif message.startswith("/groupmsg"):
-                message = self.sendGroupMsg(message, self.clientAddress)
-                self.clientSocket.send(message.encode())
+                msg = self.sendGroupMsg(message, self.clientAddress)
+                self.clientSocket.send(msg.encode())
                 # send to active members 
                 self.sendToGroupMembers(message, self.clientAddress)
             elif message == 'download':
@@ -319,6 +319,8 @@ class ClientThread(Thread):
                 members = {}
                 for user in usernames: 
                     members[user] = False
+                    if user == creator: 
+                        members[user] = True
                 groupchats[grpname] = members 
 
                 # create log file
@@ -390,7 +392,7 @@ class ClientThread(Thread):
 
         if grpname in groupchats:
             members = groupchats[grpname]
-            for m in members: 
+            for m in members:
                 if m == user: # ignore current user 
                     continue
                 else: 
@@ -401,10 +403,31 @@ class ClientThread(Thread):
                         if len(row.split(';')) == 5: 
                             active_user = re.split(';', row)[2]
                             if m == active_user: 
+                                now = datetime.datetime.now()
+                                date_format = "%d %b %Y %H:%M:%S"
+                                time_now = now.strftime(date_format)
                                 memberSocket = connected_clients[m]
-                                message = f'GROUPMSG= time, {grpname}, {user}: {msg}'
+                                message = f'{time_now}, {grpname}, {user}: {msg}'
                                 memberSocket.send(message.encode())                  
 
+    def sendPrivMessage(self, message): 
+        reciever = re.split(r' ', message)[1]
+        msg = ' '.join(re.split(r' ', message)[2:])
+        user_info = self.clientlog[self.clientAddress]
+        user = user_info['username']
+        
+        # if user is active send message
+        with open('userlog.txt', 'r') as file: 
+            content = file.read()
+        for row in re.split(r'\n', content):
+            active_user = re.split(';', row)[2]
+            if reciever == active_user:
+                memberSocket = connected_clients[reciever]
+                now = datetime.datetime.now()
+                date_format = "%d %b %Y %H:%M:%S"
+                time_now = now.strftime(date_format)
+                response = f'{time_now}, {user}: {msg}'
+                memberSocket.send(response.encode())
 print("\n===== Server is running =====")
 print("===== Waiting for connection request from clients...=====")
 
