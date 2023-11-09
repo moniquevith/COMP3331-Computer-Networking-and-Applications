@@ -63,6 +63,7 @@ loginAttempts = {}
 blockedUser = {}
 groupchats = {} # groupchats = {groupname: {user1: false, user2: false}, groupname2: {user1: false, user2: false}}
 connected_clients = {} # {username: self.clientSocket}
+group_message_count = {} # {groupname: 0}
 
 # Configure the first logger
 logger1 = logging.getLogger('logger1')
@@ -135,14 +136,14 @@ class ClientThread(Thread):
                 if checkValid:
                     ClientThread.message_num += 1
                     info = self.logMessage(message, ClientThread.message_num)
-                    response = f"{info[0]} {info[1]}"
+                    response = f'message sent at {info[0]}'
                     self.clientSocket.send(response.encode())
                     self.sendPrivMessage(message)
                 else: 
                     message = 'Invalid User'
                     self.clientSocket.send(message.encode())
             elif message.startswith("/activeuser"):
-                if self.getActiveUsers(clientAddress) == []: 
+                if self.getActiveUsers(self.clientAddress) == []: 
                     message = "no other active user"
                     self.clientSocket.send(message.encode())
                 else: 
@@ -171,8 +172,9 @@ class ClientThread(Thread):
             elif message.startswith("/groupmsg"):
                 msg = self.sendGroupMsg(message, self.clientAddress)
                 self.clientSocket.send(msg.encode())
-                # send to active members 
-                self.sendToGroupMembers(message, self.clientAddress)
+                # send to active members only if they joined group
+                if msg != "Please join the group before sending messages":
+                    self.sendToGroupMembers(message, self.clientAddress)
             elif message.startswith("/logout"): 
                 # remove them from connected_clients
                 user_info = self.clientlog[self.clientAddress]
@@ -208,7 +210,7 @@ class ClientThread(Thread):
 
         # check if user is blocked
         if username in blockedUser: 
-            blocked = blockedUser[username] 
+            blocked = blockedUser[username]
             date_format = "%d %b %Y %H:%M:%S"
             blocked_time = datetime.datetime.strptime(blocked, date_format)
             now = datetime.datetime.now()
@@ -227,6 +229,10 @@ class ClientThread(Thread):
                     if username == valid_username and password == valid_password:
                         valid_credentials = True 
                         username_exists = True
+                        self.clientlog[client_address] = {
+                            'username': username,
+                            'client_ip_address': client_address[0]
+                        }
                         break
                     if username == valid_username and password != valid_password:
                         valid_credentials = False
@@ -235,7 +241,20 @@ class ClientThread(Thread):
                     
                     valid_credentials = False  
                     username_exists = False
-                reply_msg = message_response(valid_credentials, username, username_exists)
+                
+                with open('userlog.txt', 'r') as file: 
+                    content = file.read()
+
+                for row in re.split(r'\n', content):
+                    if row == '': # if empty userlog
+                        reply_msg = message_response(valid_credentials, username, username_exists)
+                        continue
+                    else:
+                        active_user = re.split(';', row)[2]
+                    if active_user == username: 
+                        reply_msg = "User already logged in"
+                    else: # if not empty and hasnt logged in
+                        reply_msg = message_response(valid_credentials, username, username_exists)
         else: 
             valid_credentials = False 
             username_exists = False
@@ -257,8 +276,22 @@ class ClientThread(Thread):
                 
                 valid_credentials = False
                 username_exists = False
-                
-            reply_msg = message_response(valid_credentials, username, username_exists)
+
+            with open('userlog.txt', 'r') as file: 
+                    content = file.read()
+
+            for row in re.split(r'\n', content):
+                if row == '': # if empty userlog
+                    reply_msg = message_response(valid_credentials, username, username_exists)  
+                    continue
+                else:
+                    active_user = re.split(';', row)[2]
+                if active_user == username:
+                    reply_msg = "User already logged in" 
+                    break
+                else: # if not empty and hasnt logged in
+                    reply_msg = message_response(valid_credentials, username, username_exists) 
+            # reply_msg = message_response(valid_credentials, username, username_exists)
         self.clientSocket.send(reply_msg.encode())
 
     def logUser(self, message, sequence_num, client_address):
@@ -383,7 +416,9 @@ class ClientThread(Thread):
                         break
                     else: # joined chat
                         with open(f'{grpname}_messagelog.txt', 'a') as file: 
-                            file.write(f'{time_now}; {user}; {msg}\n')
+                            group_message_count[grpname] = 1 + group_message_count.get(grpname, 0)
+                            seq_num = group_message_count[grpname]
+                            file.write(f'{seq_num}; {time_now}; {user}; {msg}\n')
                             file.close()
                         message = "Group chat message sent"
                         break
@@ -411,13 +446,14 @@ class ClientThread(Thread):
                     for row in re.split(r'\n', content):
                         if len(row.split(';')) == 5: 
                             active_user = re.split(';', row)[2]
-                            if m == active_user: 
-                                now = datetime.datetime.now()
-                                date_format = "%d %b %Y %H:%M:%S"
-                                time_now = now.strftime(date_format)
-                                memberSocket = connected_clients[m]
-                                message = f'{time_now}, {grpname}, {user}: {msg}'
-                                memberSocket.send(message.encode())  
+                            if m == active_user:
+                                if members[m] == True: # if they are active and have joined
+                                    now = datetime.datetime.now()
+                                    date_format = "%d %b %Y %H:%M:%S"
+                                    time_now = now.strftime(date_format)
+                                    memberSocket = connected_clients[m]
+                                    message = f'{time_now}, {grpname}, {user}: {msg}'
+                                    memberSocket.send(message.encode())  
                     file.close()                
 
     def sendPrivMessage(self, message): 
@@ -430,7 +466,10 @@ class ClientThread(Thread):
         with open('userlog.txt', 'r') as file: 
             content = file.read()
         for row in re.split(r'\n', content):
-            active_user = re.split(';', row)[2]
+            if row == '': 
+                continue
+            else:
+                active_user = re.split(';', row)[2]
             if reciever == active_user:
                 memberSocket = connected_clients[reciever]
                 now = datetime.datetime.now()
@@ -450,7 +489,7 @@ class ClientThread(Thread):
                 else: 
                     active_user = row.split(';')[2]
                 if active_user != user:
-                    file.write(row)
+                    file2.write(row)
 
         file.close()
         file2.close()
