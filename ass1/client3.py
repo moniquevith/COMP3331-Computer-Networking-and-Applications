@@ -33,13 +33,27 @@ udp_socket.bind(('0.0.0.0', 0))  # Binding to port 0 to let the OS choose a port
 local_address = udp_socket.getsockname()
 udp_port_number = local_address[1]
 
+exit_client = False
+
 def recv_handler():
+    global exit_client
     while True:
         data = clientSocket.recv(1024)
         receivedMessage = data.decode()
-        print(receivedMessage)
+        if receivedMessage.startswith("Bye,"):
+            print(receivedMessage)
+
+            # close the socket
+            clientSocket.close()
+            udp_socket.close()
+
+            exit_client = True
+            break
+        else:
+            print(receivedMessage)
 
 def send_handler():
+    global exit_client
     while True: 
         command = input("Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /logout):")
         if command.startswith('/msgto'):
@@ -79,6 +93,11 @@ def send_handler():
             else: 
                 message = command
                 clientSocket.send(message.encode())
+        if command.startswith('/logout'):
+            message = '/logout'
+            clientSocket.send(message.encode())
+            exit_client = True
+            break
 
 def run_threads():
     recv_thread = threading.Thread(target=recv_handler)
@@ -91,6 +110,9 @@ def run_threads():
 
     while True:
         time.sleep(0.1)
+
+        if exit_client:
+            exit(0)
 
 def log_in(retry_password, logged_in, curr_user):
     if retry_password: 
@@ -137,7 +159,3 @@ if __name__ == "__main__":
     logged_in = False
     curr_user = ''
     log_in(retry_password, logged_in, curr_user)
-
-    # close the socket
-    # clientSocket.close()
-    # udp_socket.close()

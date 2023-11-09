@@ -173,6 +173,16 @@ class ClientThread(Thread):
                 self.clientSocket.send(msg.encode())
                 # send to active members 
                 self.sendToGroupMembers(message, self.clientAddress)
+            elif message.startswith("/logout"): 
+                # remove them from connected_clients
+                user_info = self.clientlog[self.clientAddress]
+                user = user_info['username']
+                del connected_clients[user]
+
+                # clear them from userlog 
+                self.deleteFromUserLog(user)
+                message = f"Bye, {user}!"
+                self.clientSocket.send(message.encode())
             elif message == 'download':
                 print("[recv] Download request")
                 message = 'download filename'
@@ -249,7 +259,6 @@ class ClientThread(Thread):
                 username_exists = False
                 
             reply_msg = message_response(valid_credentials, username, username_exists)
-        print(reply_msg)
         self.clientSocket.send(reply_msg.encode())
 
     def logUser(self, message, sequence_num, client_address):
@@ -408,7 +417,8 @@ class ClientThread(Thread):
                                 time_now = now.strftime(date_format)
                                 memberSocket = connected_clients[m]
                                 message = f'{time_now}, {grpname}, {user}: {msg}'
-                                memberSocket.send(message.encode())                  
+                                memberSocket.send(message.encode())  
+                    file.close()                
 
     def sendPrivMessage(self, message): 
         reciever = re.split(r' ', message)[1]
@@ -428,6 +438,22 @@ class ClientThread(Thread):
                 time_now = now.strftime(date_format)
                 response = f'{time_now}, {user}: {msg}'
                 memberSocket.send(response.encode())
+
+    def deleteFromUserLog(self, user):
+        with open('userlog.txt', 'r') as file: 
+            content = file.read()
+        
+        with open('userlog.txt', 'w') as file2:
+            for row in re.split(r'\n', content):
+                if row == '': 
+                    continue
+                else: 
+                    active_user = row.split(';')[2]
+                if active_user != user:
+                    file.write(row)
+
+        file.close()
+        file2.close()
 print("\n===== Server is running =====")
 print("===== Waiting for connection request from clients...=====")
 
