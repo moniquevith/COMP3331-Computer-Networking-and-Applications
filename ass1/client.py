@@ -35,6 +35,8 @@ udp_port_number = local_address[1]
 
 exit_client = False
 
+activeUsers = {}
+
 def recv_handler():
     global exit_client
     while True:
@@ -52,10 +54,10 @@ def recv_handler():
         else:
             print(receivedMessage)
 
-def send_handler():
+def send_handler(curr_user):
     global exit_client
     while True: 
-        command = input("Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /logout):")
+        command = input("Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /logout, /p2pvideo):")
         if command.startswith('/msgto'):
             if len(command.split()) < 3: 
                 print("Invalid use of command /msgto")                  
@@ -81,30 +83,50 @@ def send_handler():
                 clientSocket.send(message.encode())
         if command.startswith('/joingroup'):
             if len(command.split()) < 2: 
-                    print("Invalid use of command /joingroup")
-                    continue
+                print("Invalid use of command /joingroup")
+                continue
             else: 
                 message = command
                 clientSocket.send(message.encode())
         if command.startswith('/groupmsg'):
             if len(command.split()) < 3: 
-                    print("Invalid use of command /groupmsg")
-                    continue
+                print("Invalid use of command /groupmsg")
+                continue
             else: 
                 message = command
                 clientSocket.send(message.encode())
         if command.startswith('/logout'):
             message = '/logout'
+            del activeUsers[curr_user]
             clientSocket.send(message.encode())
             exit_client = True
             break
+        if command.startswith('/p2pvideo'):
+            if len(command.split()) < 3:
+                print("Invalid use of command /joingroup")
+                continue
+            else:
+                audience = command.split(' ')[1]
+                file = command.split(' ')[2]
+                # check if audience is active 
+                # loop through activeUser and find their name
+                # no active: error
+                # active: 
+                #       get port number of user and send UDP
 
-def run_threads():
+                # with open(file, 'rb') as file:
+                #     while True: 
+                #         data = file.read(1024)
+                #         if not data: 
+                #             break
+                        # udp_socket.sendto(data, (activeUsers, audience_port))
+
+def run_threads(curr_user):
     recv_thread = threading.Thread(target=recv_handler)
     recv_thread.daemon = True
     recv_thread.start()
 
-    sending_thread = threading.Thread(target=send_handler)
+    sending_thread = threading.Thread(target=send_handler, args=(curr_user,))
     sending_thread.daemon = True
     sending_thread.start()
 
@@ -137,8 +159,10 @@ def log_in(retry_password, logged_in, curr_user):
     elif receivedMessage == "Welcome to TESSENGER!":
         print(receivedMessage)
         udp_port = 'UDP_PORT=' + str(udp_port_number)
+        activeUsers[curr_user] = udp_port_number
+        print(activeUsers)
         clientSocket.send(udp_port.encode())
-        run_threads()
+        run_threads(curr_user)
     elif receivedMessage == "Invalid Password. Please try again":
         print(receivedMessage)
         logged_in = False
